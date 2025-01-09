@@ -79,11 +79,11 @@ class PingS500(Ping1D):
     #
     # @return None if there is no reply from the device, otherwise a dictionary with the following keys:\n
     # centi_degC: Units: cC; The temperature in centi-degrees Centigrade (100 * degrees C).\n
-    def get_processor_degC(self):
-        if self.legacyRequest(definitions.PINGS500_PROCESSOR_DEGC) is None:
+    def get_processor_deg(self):
+        if self.legacyRequest(definitions.PINGS500_PROCESSOR_DEG) is None:
             return None
         data = ({
-            "centi_degC": self._centi_degC,  # Units: cC; The temperature in centi-degrees Centigrade (100 * degrees C).
+            "centi_degc": self._centi_degc,  # Units: cC; The temperature in centi-degrees Centigrade (100 * degrees C).
         })
         return data
 
@@ -118,29 +118,6 @@ class PingS500(Ping1D):
             "sos_mm_per_sec": self._sos_mm_per_sec,  # Units: mm/s; Current speed of sound setting in mm/sec. Default is 1500000 mm/sec.
         })
         return data
-
-    ##
-    # @brief Send a set_device_id message to the device\n
-    # Message description:\n
-    # Set the device ID.\n
-    # Send the message to write the device parameters, then read the values back from the device\n
-    #
-    # @param device_id - Device ID (0-254). 255 is reserved for broadcast messages.
-    #
-    # @return If verify is False, True on successful communication with the device. If verify is False, True if the new device parameters are verified to have been written correctly. False otherwise (failure to read values back or on verification failure)
-    def set_device_id(self, device_id, verify=True):
-        m = pingmessage.PingMessage(definitions.PINGS500_SET_DEVICE_ID)
-        m.device_id = device_id
-        m.pack_msg_data()
-        self.write(m.msg_data)
-        if self.legacyRequest(definitions.PINGS500_DEVICE_ID) is None:
-            return False
-        # Read back the data and check that changes have been applied
-        if (verify
-                and (self._device_id != device_id)):
-            return False
-        return True  # success
-
     ##
     # @brief Send a set_ping_params message to the device\n
     # Message description:\n
@@ -171,14 +148,50 @@ class PingS500(Ping1D):
         m.decimation = decimation
         m.pack_msg_data()
         self.write(m.msg_data)
-        if self.legacyRequest(definitions.PINGS500_PING_PARAMS) is None:
-            return False
-        # Read back the data and check that changes have been applied
-        if (verify
-                and (self._start_mm != start_mm or self._length_mm != length_mm or self._gain_index != gain_index or self._msec_per_ping != msec_per_ping or self._pulse_len_usec != pulse_len_usec or self._report_id != report_id or self._reserved != reserved or self._chirp != chirp or self._decimation != decimation)):
-            return False
-        return True  # success
+    
+    def get_distance_2(self):
+        if self.legacyRequest(definitions.PINGS500_DISTANCE2) is None:
+            return None
+        data = ({
+            "ping_distance_mm": self._ping_distance_mm,  # Units: mm/s; Current speed of sound setting in mm/sec. Default is 1500000 mm/sec.
+            "averaged_distance_mm": self._averaged_distance_mm,
+            "reserved": self._reserved,
+            "confidence_this_ping": self._confidence_this_ping,
+            "confidence_averaged_distance": self._confidence_averaged_distance,
+            "timestamp_msec": self._timestamp_msec,
+        })
+        return data
 
+
+    def get_profile6_t(self):
+        if self.legacyRequest(definitions.PINGS500_PROFILE6_T) is None:
+            return None
+        
+
+
+        data = {
+            "ping_number": self._ping_number,  # sequentially assigned from 0 at power up
+            "start_mm": self._start_mm,  # start of ping (mm)
+            "length_mm": self._length_mm,  # length of ping (mm)
+            "start_ping_hz": self._start_ping_hz,  # start frequency of ping (Hz)
+            "end_ping_hz": self._end_ping_hz,  # end frequency of ping (Hz)
+            "adc_sample_hz": self._adc_sample_hz,  # ADC sampling rate (Hz)
+            "timestamp_msec": self._timestamp_msec,  # timestamp in milliseconds
+            "spare2": self._spare2,  # spare value (unused)
+            "pulse_duration_sec": self._pulse_duration_sec,  # pulse duration (seconds)
+            "analog_gain": self._analog_gain,  # analog gain
+            "max_pwr_db": self._max_pwr_db,  # max power in dB
+            "min_pwr_db": self._min_pwr_db,  # min power in dB
+            "this_ping_depth_m": self._this_ping_depth_m,  # this ping depth in meters
+            "smooth_depth_m": self._smooth_depth_m,  # smoothed depth in meters
+            "fspare2": self._fspare2,  # spare value (unused)
+            "depth_measurement_confidence": self._depth_measurement_confidence,  # depth measurement confidence (0-100)
+            "gain_index": self._gain_index,  # gain index
+            "decimation": self._decimation,  # decimation index
+            "smoothed_depth_measurement_confidence": self._smoothed_depth_measurement_confidence,  # smoothed depth confidence (0-100)
+            "pwr_results": self._pwr_results,  # power results array
+        }
+        return data
     ##
     # @brief Send a set_speed_of_sound message to the device\n
     # Message description:\n
@@ -204,74 +217,102 @@ class PingS500(Ping1D):
 
 
 if __name__ == "__main__":
-    import argparse
+    import time
+    import struct
+    import math
 
-    parser = argparse.ArgumentParser(description="Ping python library example.")
-    parser.add_argument('--device', action="store", required=False, type=str, help="Ping device port. E.g: /dev/ttyUSB0")
-    parser.add_argument('--baudrate', action="store", type=int, default=115200, help="Ping device baudrate. E.g: 115200")
-    parser.add_argument('--udp', action="store", required=False, type=str, help="Ping UDP server. E.g: 192.168.2.2:9090")
-    args = parser.parse_args()
-    if args.device is None and args.udp is None:
-        parser.print_help()
-        exit(1)
 
-    p = PingS500()
-    if args.device is not None:
-        p.connect_serial(args.device, args.baudrate)
-    elif args.udp is not None:
-        (host, port) = args.udp.split(':')
-        p.connect_udp(host, int(port))
+    device = PingS500()
+    print(device)
 
-    print("Initialized: %s" % p.initialize())
+    # Connect to the device
+    device.connect_udp("192.168.3.51", 51200)
 
-    print("\ntesting get_altitude")
-    result = p.get_altitude()
-    print("  " + str(result))
-    print("  > > pass: %s < <" % (result is not None))
+    # Test get_fw_version
+    fw_version = device.get_fw_version()
+    #print("Firmware Version:", fw_version)
 
-    print("\ntesting get_fw_version")
-    result = p.get_fw_version()
-    print("  " + str(result))
-    print("  > > pass: %s < <" % (result is not None))
+    # Test get_speed_of_sound
+    speed_of_sound = device.get_speed_of_sound()
+    #print("Speed of Sound (mm/s):", speed_of_sound)
 
-    print("\ntesting get_gain_index")
-    result = p.get_gain_index()
-    print("  " + str(result))
-    print("  > > pass: %s < <" % (result is not None))
+    # Test set_speed_of_sound
+    #print("Setting speed of sound to 1485000 mm/s...")
+    if device.set_speed_of_sound(15000000):
+        print("Speed of sound set successfully.")
+    else:
+        print("Failed to set speed of sound.")
 
-    print("\ntesting get_ping_rate_msec")
-    result = p.get_ping_rate_msec()
-    print("  " + str(result))
-    print("  > > pass: %s < <" % (result is not None))
+    # Test set_ping_params
+    print("Setting ping parameters...")
+    device.set_ping_params(
+        start_mm=0,
+        length_mm=0,
+        gain_index=-1,
+        msec_per_ping=-1,
+        pulse_len_usec=0,
+        report_id=1223,
+        reserved=0,
+        chirp=1,
+        decimation=0
+    )
 
-    print("\ntesting get_processor_degC")
-    result = p.get_processor_degC()
-    print("  " + str(result))
-    print("  > > pass: %s < <" % (result is not None))
+    for i in range(1):
+        distance = device.get_distance_2()
+        print("Distance:", distance)
+        time.sleep(0.1)
 
-    print("\ntesting get_range")
-    result = p.get_range()
-    print("  " + str(result))
-    print("  > > pass: %s < <" % (result is not None))
+    device.set_ping_params(
+        start_mm=0,
+        length_mm=0,
+        gain_index=-1,
+        msec_per_ping=-1,
+        pulse_len_usec=0,
+        report_id=1308,
+        reserved=0,
+        chirp=0,
+        decimation=0
+    )
 
-    print("\ntesting get_speed_of_sound")
-    result = p.get_speed_of_sound()
-    print("  " + str(result))
-    print("  > > pass: %s < <" % (result is not None))
+    for i in range(1):
+        distance = device.get_profile6_t()
+        print("Distance:", distance)
 
-    print("\ntesting set_device_id")
-    print("  > > pass: %s < <" % p.set_device_id(43))
-    print("\ntesting set_mode_auto")
-    print("  > > pass: %s < <" % p.set_mode_auto(False))
-    print("\ntesting set_range")
-    print("  > > pass: %s < <" % p.set_range(1000, 2000))
-    print("\ntesting set_speed_of_sound")
-    print("  > > pass: %s < <" % p.set_speed_of_sound(1444000))
-    print("\ntesting set_ping_interval")
-    print("  > > pass: %s < <" % p.set_ping_interval(36))
-    print("\ntesting set_gain_setting")
-    print("  > > pass: %s < <" % p.set_gain_setting(3))
-    print("\ntesting set_ping_enable")
-    print("  > > pass: %s < <" % p.set_ping_enable(True))
+        converted_data = [struct.unpack('H', distance["pwr_results"][i:i+2])[0] for i in range(0, len(distance["pwr_results"]), 2)]
+        print(converted_data)
+        print("Length of Converted Data:", len(converted_data))
 
-    print(p)
+
+        # Convert integers to dB, handle zero values safely
+        converted_data_db = [
+            10 * math.log10(x/1e-12) if x > 0 else float('-inf') 
+            for x in converted_data
+        ]
+        print("Length of Converted Data in dB:", len(converted_data_db))
+        print(converted_data_db)
+
+        time.sleep(0.1)
+
+    # Test get_altitude
+    altitude = device.get_altitude()
+    #print("Altitude:", altitude)
+
+    # Test get_gain_index
+    gain_index = device.get_gain_index()
+    #print("Gain Index:", gain_index)
+
+    # Test get_ping_rate_msec
+    ping_rate = device.get_ping_rate_msec()
+    #print("Ping Rate (ms):", ping_rate)
+
+    # Test get_processor_degC
+    processor_temp = device.get_processor_deg()
+    #print("Processor Temperature (centi-degrees C):", processor_temp)
+    #print("Processor Temperature (degrees C):", processor_temp["centi_degc"] / 100)
+
+    # Test get_range
+    scan_range = device.get_range()
+    #print("Scan Range:", scan_range)
+
+
+    del device
