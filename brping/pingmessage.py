@@ -13,6 +13,7 @@ variable_msgs = [
     definitions.PING360_DEVICE_DATA,
     definitions.PING360_AUTO_DEVICE_DATA,
     definitions.PINGS500_PROFILE6_T,
+    definitions.OMNISCAN450_OS_MONO_PROFILE,
 ]
 
 
